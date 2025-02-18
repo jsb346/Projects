@@ -1,1 +1,1 @@
-Project to assess the most influential features of a home to predict values, so that property taxes are given fairly.
+This project presents a graduate school final focused on property assessment and valuation in Boulder County. It includes exploratory data analysis (EDA), statistical inference, and predictive modeling using K-Nearest Neighbors (KNN) regression to estimate home values based on historical sales data.
