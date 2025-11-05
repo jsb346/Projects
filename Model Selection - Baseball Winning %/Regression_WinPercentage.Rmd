@@ -1,0 +1,88 @@
+---
+title: "Baseball Winning Percentage"
+subtitle: "Linear Model using Offensive Statistics"
+author: "Jack Bremer"
+date: "2025-03-05"
+output: html_document
+---
+
+## Predicting Baseball Winning Percentage Using Linear Regression and Model Selection Techniques
+
+In this analysis, we explore how various offensive and defensive statistics influence a baseball team's winning percentage. We will fit a multiple linear regression model and apply different model selection techniques to identify the most significant predictors. The dataset used is from the 2011 MLB season.
+
+### 1. Fitting a Multiple Linear Regression Model
+
+First fit a linear regression model with winning percentage (Win.p) as the response and battingaverage (BA), on base percentage (OBP), home runs (HR), earned run average (ERA), fielding percentage(FP), and slugging percentage (SLG) as predictors. The following code creates the variables BA, OBP, SLG, and Win.p.
+
+```{r}
+baseball <- read.table("Baseball2011.txt",header=T)
+baseball <- na.omit(baseball)
+attach(baseball)
+
+BA <- H/AB
+OBP <- (H+BB+HBP)/(AB+BB+HBP+SF)
+X1B <- H-(X2B+X3B+HR)
+SLG <- (X1B+2*X2B+3*X3B+4*HR)/AB
+Win.p <- W/G
+
+model1 <- lm(Win.p ~ BA + OBP + HR + ERA + FP + SLG)
+summary(model1)
+```
+
+
+The R^2 value of 0.9014 means that the model explains 90.14% of the variance in winning percentage. The adjusted R^2 value of 0.8756, which is slightly lower than the R^2 value, suggests that some predictors might not be contributing much to the model and could be unnecessary. 
+
+
+### 2. Automated P-Value-Based Backward Selection (fastbw())
+
+Remove non-significant predictors using the `fastbw()` function from the `rms` package with a significance level of 0.05.
+```{r}
+suppressMessages(library(rms))
+
+mod1 <- ols(Win.p ~ BA + OBP + HR + ERA + FP + SLG, data = baseball)
+mod1_bw <- fastbw(mod1, sls = 0.05)
+mod1_bw
+```
+The adjusted R^2 value for the reduced model (0.896) is slightly lower than the original model’s adjusted R^2 (0.9014), indicating a minor loss in explanatory power. However removing non-significant predictors makes the model simpler and avoids overfitting while still retaining key variables that influence winning percentage. This trade-off improves interpretability and model efficiency without significantly sacrificing predictive strength.
+
+
+### 3. Effect of a Higher Significance Threshold in fastbw()
+
+Repeat previous step with sls = 0.75.
+```{r}
+mod1_bw_75 <- fastbw(mod1, sls = 0.75)
+mod1_bw_75
+```
+Same as before, there are 3 predictors (FP, BA, and SLG). The sls argument sets a threshold for removing variables based on p-values. When set to 0.75, variables with p > 0.75 would be dropped. In this case, all the weak predictors were already removed at sls = 0.05, so increasing sls didn’t change the model.
+
+### 4. Calculating and Interpreting AIC (extractAIC())
+```{r}
+extractAIC(model1)
+```
+AIC has no absolute meaning - it only helps when comparing models. If the reduced model as a lower AIC, it suggests that removing variables improved model efficiency.
+
+### 5. AIC-Based Model Selection Using stepAIC()
+```{r}
+suppressMessages(library(MASS))
+
+model_aic <- stepAIC(model1, direction = "both", trace = FALSE)
+summary(model_aic)
+```
+Yes, in this case, both methods selected OBP, HR, and ERA, but no, they won't always select the same variables. `fastbw()` removes variables based on p-values (focusing on statistical significance), while `stepAIC()` minimizes AIC (balancing model fit and complexity). If a predictor has moderate significance but improves AIC, `stepAIC()` may keep it while `fastbw()` removes it.
+
+### 6. Comparing Full and Reduced Model Summaries
+```{r}
+summary(model1)
+summary(model_aic)
+```
+In the full model, some predictors had high p-values (> 0.05), meaning they weren’t statistically significant with winning percentage. Removing weak predictors improves statistical power—the remaining predictors (OBP, HR, ERA) become more significant. Multicollinearity may have diluted the significance of some variables in the full model, but after removing unnecessary ones, the important predictors became clearer.
+
+
+### 7. Forward Selection Using stepAIC()
+```{r}
+mod2 <- lm(Win.p ~ 1, data = baseball)
+aic.forward <- stepAIC(mod2,direction="forward", scope=list(upper=mod1,lower=mod2))
+summary(aic.forward)
+```
+Forward selection recommends HR, ERA, and OBP as the best predictors, which matches the backward selection.
+
